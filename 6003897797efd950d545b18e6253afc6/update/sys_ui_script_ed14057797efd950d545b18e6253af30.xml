@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ui_script">
+    <sys_ui_script action="INSERT_OR_UPDATE">
+        <active>true</active>
+        <description>Enables Drag &amp; Drop (all browser) as well as Copy &amp; Paste (Chrome, Sarafi) of attachments on the Service Portal for most forms.&#13;
+Copy &amp; Paste is not working with Firefox and Internet Explorer because those browsers do not give access to the files in the clipboard.</description>
+        <global>false</global>
+        <ignore_in_now_experience>false</ignore_in_now_experience>
+        <name>x_376096_pcp.copy_paste_inject</name>
+        <script><![CDATA[var x_376096_pcp = x_376096_pcp || {};
+
+x_376096_pcp.copy_paste_inject = (function() {
+	"use strict";
+	/* global setTimeout, MutationObserver, angular */
+	/* eslint no-undef: "error" */
+	
+	if (x_376096_pcp.copy_paste_inject) {
+		return x_376096_pcp.copy_paste_inject;
+	}
+	
+	var targetWidgets = [
+		// '<Sys ID of Target Widget>', // <Target Widget Name> (<used page>)
+		'3c29786e87133200e0ef0cf888cb0bdf', // SC Catalog Item (sc_cat_item)
+		'85357f52cb30020000f8d856634c9c24', // Ticket Conversations (ticket)
+		'a54beb3a87f10010e0ef0cf888cb0bba', // [embedded]Standard Ticket Conversations (standard_ticket [Employee Center])
+		'fd1f4ec347730200ba13a5554ee490c0', // Form (form)
+	];
+	
+	setTimeout(function () {
+		var window = this;
+		var observer = new MutationObserver(function (mutations) {
+			for (var i = 0; i < mutations.length; i++) {
+				var mutation = mutations[i];
+				if (mutation.addedNodes) {
+					for (var j = 0; j < mutation.addedNodes.length; j++) {
+						var node = mutation.addedNodes[j];
+						for (var k = 0; k < targetWidgets.length; k++) {
+							if (node.classList && !node.classList.contains('pcp-copy-paste-injected') && node.classList.contains('v' + targetWidgets[k])) {
+								node.classList.add('pcp-copy-paste-injected');
+								inject(window, angular.element(node));
+							}
+						}
+					}
+				}
+			}
+		});
+		
+		observer.observe(window.document, {
+			childList: true,
+			subtree: true
+		});
+	});
+
+	return {
+		type: 'copy_paste_inject'
+	};
+	
+	function inject(window, element) {
+		var scope = element.scope();
+		// reference: https://stackoverflow.com/a/1719157
+		var overlay = angular.element('<div style="position:fixed;top:0;left:0;width:100%;height:100%;background-color:#000;filter:alpha(opacity=50);-moz-opacity:0.5;-khtml-opacity:0.5;opacity:0.5;z-index:10000;pointer-events:none;"></div>');
+
+		var dropTarget = null;
+		// allow the drag
+		element.on('dragover.pcp', function (event) {
+			event.preventDefault();
+			event.originalEvent.dataTransfer.dropEffect = 'copy';
+		});
+
+		// add on overlay to mark the "dropzone"
+		element.on('dragenter.pcp', function (event) {
+			event.preventDefault();
+			dropTarget = event.target;
+			overlay.appendTo(window.document.body);
+		});
+
+		// remove the "dropzone" marker
+		element.on('dragleave.pcp', function (event) {
+			if (dropTarget == event.target) {
+				overlay.remove();
+			}
+		});
+
+		element.on('drop.pcp', function (event) {
+			event.preventDefault(); // prevent the browser from opening the file
+			overlay.remove();
+			var files = event.originalEvent.dataTransfer.files;
+			if (files.length) {
+				scope.attachmentHandler.onFileSelect(files);
+			}
+		});
+
+		element.on('paste.pcp', function (event) {
+			var files = event.originalEvent.clipboardData.files;
+			if (files.length) {
+				// in case a file is in the clipboard, the file should be uploaded
+				// and prevent the default behaviour which is to copy the file's name
+				// into whatever is currently selected (e.g. a input field)
+				event.preventDefault();
+				scope.attachmentHandler.onFileSelect(files);
+			}
+		});
+
+		scope.$on('$destroy', function () {
+			element.off('paste.pcp');
+			element.off('drop.pcp');
+			element.off('dragleave.pcp');
+			element.off('dragenter.pcp');
+			element.off('dragover.pcp');
+		});
+	}
+})();
+]]></script>
+        <script_name>copy_paste_inject</script_name>
+        <sys_class_name>sys_ui_script</sys_class_name>
+        <sys_created_by>admin</sys_created_by>
+        <sys_created_on>2022-12-10 12:11:33</sys_created_on>
+        <sys_id>ed14057797efd950d545b18e6253af30</sys_id>
+        <sys_name>x_376096_pcp.copy_paste_inject</sys_name>
+        <sys_package display_value="Portal Copy Paste" source="x_376096_pcp">6003897797efd950d545b18e6253afc6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Portal Copy Paste">6003897797efd950d545b18e6253afc6</sys_scope>
+        <sys_update_name>sys_ui_script_ed14057797efd950d545b18e6253af30</sys_update_name>
+        <ui_type>1</ui_type>
+        <use_scoped_format>true</use_scoped_format>
+    </sys_ui_script>
+</record_update>
