@@ -12,7 +12,6 @@ x_376096_pcp.copy_paste_inject = (function() {
 	"use strict";
 	/* global setTimeout, MutationObserver, angular */
 	/* eslint no-undef: "error" */
-	
 	if (x_376096_pcp.copy_paste_inject) {
 		return x_376096_pcp.copy_paste_inject;
 	}
@@ -26,7 +25,8 @@ x_376096_pcp.copy_paste_inject = (function() {
 	];
 	
 	setTimeout(function () {
-		var window = this;
+		var shared = {};
+		var $window = this;
 		var observer = new MutationObserver(function (mutations) {
 			for (var i = 0; i < mutations.length; i++) {
 				var mutation = mutations[i];
@@ -36,7 +36,7 @@ x_376096_pcp.copy_paste_inject = (function() {
 						for (var k = 0; k < targetWidgets.length; k++) {
 							if (node.classList && !node.classList.contains('pcp-copy-paste-injected') && node.classList.contains('v' + targetWidgets[k])) {
 								node.classList.add('pcp-copy-paste-injected');
-								inject(window, angular.element(node));
+								new CopyPasteInjector($window, angular.element(node), shared);
 							}
 						}
 					}
@@ -44,7 +44,7 @@ x_376096_pcp.copy_paste_inject = (function() {
 			}
 		});
 		
-		observer.observe(window.document, {
+		observer.observe($window.document, {
 			childList: true,
 			subtree: true
 		});
@@ -54,10 +54,10 @@ x_376096_pcp.copy_paste_inject = (function() {
 		type: 'copy_paste_inject'
 	};
 	
-	function inject(window, element) {
+	function CopyPasteInjector($window, element, shared) {
 		var scope = element.scope();
 		// reference: https://stackoverflow.com/a/1719157
-		var overlay = angular.element('<div style="position:fixed;top:0;left:0;width:100%;height:100%;background-color:#000;filter:alpha(opacity=50);-moz-opacity:0.5;-khtml-opacity:0.5;opacity:0.5;z-index:10000;pointer-events:none;"></div>');
+		var overlay = $window.angular.element('<div style="position:fixed;top:0;left:0;width:100%;height:100%;background-color:#000;filter:alpha(opacity=50);-moz-opacity:0.5;-khtml-opacity:0.5;opacity:0.5;z-index:10000;pointer-events:none;"></div>');
 
 		var dropTarget = null;
 		// allow the drag
@@ -70,7 +70,7 @@ x_376096_pcp.copy_paste_inject = (function() {
 		element.on('dragenter.pcp', function (event) {
 			event.preventDefault();
 			dropTarget = event.target;
-			overlay.appendTo(window.document.body);
+			overlay.appendTo($window.document.body);
 		});
 
 		// remove the "dropzone" marker
@@ -85,6 +85,15 @@ x_376096_pcp.copy_paste_inject = (function() {
 			overlay.remove();
 			var files = event.originalEvent.dataTransfer.files;
 			if (files.length) {
+				// Whenever a form is loaded with an conversations widget,
+				// the this handler is registered on the form *and* the widget conversation
+				// This will cause for this callback to executed twice -
+				// and therefore uploading the file twice
+				if (shared.lastDropEvent == event.timeStamp) {
+					return;
+				}
+				
+				shared.lastDropEvent = event.timeStamp;
 				scope.attachmentHandler.onFileSelect(files);
 			}
 		});
@@ -96,6 +105,16 @@ x_376096_pcp.copy_paste_inject = (function() {
 				// and prevent the default behaviour which is to copy the file's name
 				// into whatever is currently selected (e.g. a input field)
 				event.preventDefault();
+				
+				// Whenever a form is loaded with an conversations widget,
+				// the this handler is registered on the form *and* the widget conversation
+				// This will cause for this callback to executed twice -
+				// and therefore uploading the file twice
+				if (shared.lastPasteEvent == event.timeStamp) {
+					return;
+				}
+				
+				shared.lastPasteEvent = event.timeStamp;
 				scope.attachmentHandler.onFileSelect(files);
 			}
 		});
@@ -115,11 +134,14 @@ x_376096_pcp.copy_paste_inject = (function() {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2022-12-10 12:11:33</sys_created_on>
         <sys_id>ed14057797efd950d545b18e6253af30</sys_id>
+        <sys_mod_count>11</sys_mod_count>
         <sys_name>x_376096_pcp.copy_paste_inject</sys_name>
         <sys_package display_value="Portal Copy Paste" source="x_376096_pcp">6003897797efd950d545b18e6253afc6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Portal Copy Paste">6003897797efd950d545b18e6253afc6</sys_scope>
         <sys_update_name>sys_ui_script_ed14057797efd950d545b18e6253af30</sys_update_name>
+        <sys_updated_by>admin</sys_updated_by>
+        <sys_updated_on>2023-06-04 14:08:07</sys_updated_on>
         <ui_type>1</ui_type>
         <use_scoped_format>true</use_scoped_format>
     </sys_ui_script>
