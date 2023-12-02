@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?><record_update table="m2m_sp_widget_dependency">
+    <m2m_sp_widget_dependency action="INSERT_OR_UPDATE">
+        <sp_dependency display_value="PCP Copy Paste">1706c9f797efd950d545b18e6253afbd</sp_dependency>
+        <sp_widget display_value="Ticket Attachments">9ee37281d7033100a9ad1e173e24d457</sp_widget>
+        <sys_class_name>m2m_sp_widget_dependency</sys_class_name>
+        <sys_created_by>markus.kraus</sys_created_by>
+        <sys_created_on>2023-12-02 23:26:49</sys_created_on>
+        <sys_id>4ceeb9be973631103c2d3f56f053af8f</sys_id>
+        <sys_mod_count>0</sys_mod_count>
+        <sys_name>PCP Copy Paste.Ticket Attachments</sys_name>
+        <sys_package display_value="Portal Copy Paste" source="x_376096_pcp">6003897797efd950d545b18e6253afc6</sys_package>
+        <sys_policy/>
+        <sys_scope display_value="Portal Copy Paste">6003897797efd950d545b18e6253afc6</sys_scope>
+        <sys_update_name>m2m_sp_widget_dependency_4ceeb9be973631103c2d3f56f053af8f</sys_update_name>
+        <sys_updated_by>markus.kraus</sys_updated_by>
+        <sys_updated_on>2023-12-02 23:26:49</sys_updated_on>
+    </m2m_sp_widget_dependency>
+</record_update>

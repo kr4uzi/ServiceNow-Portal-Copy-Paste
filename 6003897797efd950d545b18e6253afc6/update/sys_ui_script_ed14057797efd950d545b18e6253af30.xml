@@ -1,13 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?><record_update table="sys_ui_script">
     <sys_ui_script action="INSERT_OR_UPDATE">
         <active>true</active>
-        <description>Enables Drag &amp; Drop (all browser) as well as Copy &amp; Paste (Chrome, Sarafi) of attachments on the Service Portal for most forms.&#13;
-Copy &amp; Paste is not working with Firefox and Internet Explorer because those browsers do not give access to the files in the clipboard.</description>
+        <description>This App was almost made obsolute as Vancouver finally enables Copy&amp;Paste / Drag&amp;Drop on all OOTB Pages with the paperclip button.&#13;
+If you still want to make use of this app (no popup required!), please add the following "Page Specific CSS" to all relevant Portal Pages:&#13;
+body {&#13;
+  --pcp-enabled: true;&#13;
+}&#13;
+Note:  Copy &amp; Paste is not working with Firefox and Internet Explorer because those browsers do not give access to the files in the clipboard.</description>
         <global>false</global>
         <ignore_in_now_experience>false</ignore_in_now_experience>
         <name>x_376096_pcp.copy_paste_inject</name>
         <script><![CDATA[var x_376096_pcp = x_376096_pcp || {};
-
 x_376096_pcp.copy_paste_inject = (function() {
 	"use strict";
 	/* global setTimeout, MutationObserver, angular */
@@ -16,27 +19,54 @@ x_376096_pcp.copy_paste_inject = (function() {
 		return x_376096_pcp.copy_paste_inject;
 	}
 	
-	var targetWidgets = [
-		// '<Sys ID of Target Widget>', // <Target Widget Name> (<used page>)
-		'3c29786e87133200e0ef0cf888cb0bdf', // SC Catalog Item (sc_cat_item)
-		'85357f52cb30020000f8d856634c9c24', // Ticket Conversations (ticket)
-		'a54beb3a87f10010e0ef0cf888cb0bba', // [embedded]Standard Ticket Conversations (standard_ticket [Employee Center])
-		'fd1f4ec347730200ba13a5554ee490c0', // Form (form)
+	const version = '1.0.2';
+	const widgetIdOrSysId = [
+		'widget-sc-cat-item-v2',
+		'sc-checkout',
+		'std_ticket_conversations',
+		'widget-ticket-conversation',
+		'widget-form',
+		'std_ticket_attachments',
+		'widget-ticket-attachments',
+		'widget-sc-cat-item'
 	];
 	
 	setTimeout(function () {
-		var shared = {};
-		var $window = this;
-		var observer = new MutationObserver(function (mutations) {
-			for (var i = 0; i < mutations.length; i++) {
-				var mutation = mutations[i];
+		init(this);
+	});
+	
+	return {
+		version: version,
+		type: 'copy_paste_inject'
+	};
+	
+	function init(window) {
+		const shared = {
+			enabled: false,
+			handler: null
+		};
+		const observer = new window.MutationObserver(function (mutations) {
+			if (!window.document || !window.document.body) {
+				return;
+			}
+			
+			const config = window.getComputedStyle(window.document.body);
+			shared.enabled = config.getPropertyValue('--pcp-enabled') == 'true';
+			if (!shared.enabled) {
+				return;
+			}
+			
+			for (let i = 0; i < mutations.length; i++) {
+				const mutation = mutations[i];
 				if (mutation.addedNodes) {
-					for (var j = 0; j < mutation.addedNodes.length; j++) {
-						var node = mutation.addedNodes[j];
-						for (var k = 0; k < targetWidgets.length; k++) {
-							if (node.classList && !node.classList.contains('pcp-copy-paste-injected') && node.classList.contains('v' + targetWidgets[k])) {
+					for (let j = 0; j < mutation.addedNodes.length; j++) {
+						const node = mutation.addedNodes[j];
+						if (!shared.handler && node.classList && !node.classList.contains('pcp-copy-paste-injected')) {
+							const $element = window.angular.element(node);
+							const $scope = $element.scope();
+							if ($scope && $scope.widget && (widgetIdOrSysId.includes($scope.widget.sys_id) || widgetIdOrSysId.includes($scope.widget.id))) {
 								node.classList.add('pcp-copy-paste-injected');
-								new CopyPasteInjector($window, angular.element(node), shared);
+								shared.handler = new PCPAttachmentHandler(window, $scope, shared);
 							}
 						}
 					}
@@ -44,63 +74,62 @@ x_376096_pcp.copy_paste_inject = (function() {
 			}
 		});
 		
-		observer.observe($window.document, {
+		observer.observe(window.document, {
 			childList: true,
 			subtree: true
 		});
-	});
-
-	return {
-		type: 'copy_paste_inject'
-	};
+	}
 	
-	function CopyPasteInjector($window, element, shared) {
-		var scope = element.scope();
-		// reference: https://stackoverflow.com/a/1719157
-		var overlay = $window.angular.element('<div style="position:fixed;top:0;left:0;width:100%;height:100%;background-color:#000;filter:alpha(opacity=50);-moz-opacity:0.5;-khtml-opacity:0.5;opacity:0.5;z-index:10000;pointer-events:none;"></div>');
-
-		var dropTarget = null;
-		// allow the drag
-		element.on('dragover.pcp', function (event) {
+	function PCPAttachmentHandler(window, $scope, shared) {
+		const attachmentHandler = $scope.attachmentHandler;
+		const $window = window.angular.element(window);
+		let lastDropEvent = null;
+		let lastPasteEvent = null;		
+		let dropTarget = null;
+		let uploadInProgress = false;
+		const overlay = window.angular.element('<div style="position:fixed;top:0;left:0;width:100%;height:100%;background-color:#000;filter:alpha(opacity=50);-moz-opacity:0.5;-khtml-opacity:0.5;opacity:0.5;z-index:10000;pointer-events:none;"></div>');
+		
+		$window.on('dragover.pcp', function (event) {
 			event.preventDefault();
 			event.originalEvent.dataTransfer.dropEffect = 'copy';
 		});
-
+		
 		// add on overlay to mark the "dropzone"
-		element.on('dragenter.pcp', function (event) {
+		$window.on('dragenter.pcp', function (event) {
 			event.preventDefault();
 			dropTarget = event.target;
-			overlay.appendTo($window.document.body);
+			overlay.appendTo(window.document.body);
 		});
-
+		
 		// remove the "dropzone" marker
-		element.on('dragleave.pcp', function (event) {
+		$window.on('dragleave.pcp', function (event) {
 			if (dropTarget == event.target) {
 				overlay.remove();
 			}
 		});
-
-		element.on('drop.pcp', function (event) {
+		
+		$window.on('drop.pcp', function (event) {
 			event.preventDefault(); // prevent the browser from opening the file
 			overlay.remove();
-			var files = event.originalEvent.dataTransfer.files;
-			if (files.length) {
+			
+			const files = event.originalEvent.dataTransfer.files;
+			if (files.length && !uploadInProgress) {
 				// Whenever a form is loaded with an conversations widget,
 				// the this handler is registered on the form *and* the widget conversation
 				// This will cause for this callback to executed twice -
 				// and therefore uploading the file twice
-				if (shared.lastDropEvent == event.timeStamp) {
+				if (lastDropEvent == event.timeStamp) {
 					return;
 				}
 				
-				shared.lastDropEvent = event.timeStamp;
-				scope.attachmentHandler.onFileSelect(files);
+				lastDropEvent = event.timeStamp;
+				attachmentHandler.onFileSelect(files);
 			}
 		});
-
-		element.on('paste.pcp', function (event) {
-			var files = event.originalEvent.clipboardData.files;
-			if (files.length) {
+		
+		$window.on('paste.pcp', function (event) {
+			const files = event.originalEvent.clipboardData.files;
+			if (files.length && !uploadInProgress) {
 				// in case a file is in the clipboard, the file should be uploaded
 				// and prevent the default behaviour which is to copy the file's name
 				// into whatever is currently selected (e.g. a input field)
@@ -110,21 +139,35 @@ x_376096_pcp.copy_paste_inject = (function() {
 				// the this handler is registered on the form *and* the widget conversation
 				// This will cause for this callback to executed twice -
 				// and therefore uploading the file twice
-				if (shared.lastPasteEvent == event.timeStamp) {
+				if (lastPasteEvent == event.timeStamp) {
 					return;
 				}
 				
-				shared.lastPasteEvent = event.timeStamp;
-				scope.attachmentHandler.onFileSelect(files);
+				lastPasteEvent = event.timeStamp;
+				attachmentHandler.onFileSelect(files);
 			}
 		});
-
-		scope.$on('$destroy', function () {
-			element.off('paste.pcp');
-			element.off('drop.pcp');
-			element.off('dragleave.pcp');
-			element.off('dragenter.pcp');
-			element.off('dragover.pcp');
+		
+		$scope.$on('attachment.upload.start', function () {
+			uploadInProgress = true;
+		});
+		
+		$scope.$on('attachment.upload.stop', function () {
+			uploadInProgress = false;
+		});
+		
+		$scope.$on('$destroy', function () {
+			$window.off('paste.pcp');
+			$window.off('drop.pcp');
+			$window.off('dragleave.pcp');
+			$window.off('dragenter.pcp');
+			$window.off('dragover.pcp');
+			
+			// Note: Navigating to a different page in the Service Portal does not reload the page.
+			// The following will cause for re-initialization of the PCPAttachmentHandler,
+			// if the "Page Specific CSS" of the new page is configured to do so.
+			shared.enabled = false;
+			shared.handler = null;
 		});
 	}
 })();
@@ -134,14 +177,14 @@ x_376096_pcp.copy_paste_inject = (function() {
         <sys_created_by>admin</sys_created_by>
         <sys_created_on>2022-12-10 12:11:33</sys_created_on>
         <sys_id>ed14057797efd950d545b18e6253af30</sys_id>
-        <sys_mod_count>11</sys_mod_count>
+        <sys_mod_count>78</sys_mod_count>
         <sys_name>x_376096_pcp.copy_paste_inject</sys_name>
         <sys_package display_value="Portal Copy Paste" source="x_376096_pcp">6003897797efd950d545b18e6253afc6</sys_package>
         <sys_policy/>
         <sys_scope display_value="Portal Copy Paste">6003897797efd950d545b18e6253afc6</sys_scope>
         <sys_update_name>sys_ui_script_ed14057797efd950d545b18e6253af30</sys_update_name>
-        <sys_updated_by>admin</sys_updated_by>
-        <sys_updated_on>2023-06-04 14:08:07</sys_updated_on>
+        <sys_updated_by>markus.kraus</sys_updated_by>
+        <sys_updated_on>2023-12-02 23:35:23</sys_updated_on>
         <ui_type>1</ui_type>
         <use_scoped_format>true</use_scoped_format>
     </sys_ui_script>
